@@ -13,45 +13,108 @@ struct Matrix {
 
 };
 
-Matrix readMatrix(const string& filename) {
+/*Matrix readMatrix(const string& filename) {
+ifstream file(filename);
+if (!file.is_open()) {
+    throw runtime_error("Не удалось открыть файл: " + filename);
+}
+int k, n;
+
+Matrix matrix;
+file >> n >> k;
+matrix.n = n;
+matrix.k = k;
+
+
+matrix.AD.resize(n);
+
+for (int i = 0; i < n; i++) {
+    file >> matrix.AD[i];
+}
+
+matrix.AN.resize(n, vector<double>(k + 1));
+
+//верхняя часть
+for (int i = 0; i < n; i++) {
+    for (int j = 0; j < k; j++) {
+        file >> matrix.AN[i][j];
+
+    }
+
+}
+
+matrix.AL.resize(n, vector<double>(k));
+//нижняя часть
+for (int i = 0; i < n; i++) {
+    for (int j = 0; j < k; j++) {
+        file >> matrix.AL[i][j];
+    }
+
+}
+return matrix;
+}*/
+
+vector<vector<double>> readMatrix(const string& filename) {
     ifstream file(filename);
-    if (!file.is_open()) {
-        throw runtime_error("Не удалось открыть файл: " + filename);
-    }
-    int k, n;
+    int n;
+    file >> n;
 
-    Matrix matrix;
-    file >> n >> k;
-    matrix.n = n;
-    matrix.k = k;
+    vector<vector<double>> matrix;
+    matrix.resize(n, vector<double>(n));
 
-    
-    matrix.AD.resize(n);
 
     for (int i = 0; i < n; i++) {
-        file >> matrix.AD[i];
-    }
-
-    matrix.AN.resize(n, vector<double>(k+1));
-
-    //верхняя часть
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < k; j++) {
-            file >> matrix.AN[i][j];
-            
+        for (int j = 0; j < n; j++) {
+            file >> matrix[i][j];
         }
-
-    }
-
-    matrix.AL.resize(n, vector<double>(k));
-    //нижняя часть
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < k; j++) {
-            file >> matrix.AL[i][j];
-        }
-
     }
     return matrix;
+}
+
+Matrix denseToBand(const vector<vector<double>>& dense) {
+    int n = dense.size();
+    int k = 0;
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            if (dense[i][j] != 0) {
+                int dist = abs(i - j);
+                if (dist > k) k = dist;
+            }
+        }
+    }
+
+    Matrix band;
+    band.n = n;
+    band.k = k;
+
+    band.AD.resize(n);
+    band.AN.resize(n, vector<double>(k, 0.0));
+    band.AL.resize(n, vector<double>(k, 0.0));
+
+    for (int i = 0; i < n; i++) {
+        band.AD[i] = dense[i][i];
+        for (int l = 1; l <= k; l++) {
+            if (i - l >= 0) {
+                band.AL[i][l - 1] = dense[i][i - l];
+                band.AN[i][l - 1] = dense[i - l][i];
+            }
+        }
+    }
+
+    return band;
+}
+
+vector<double> readVector(const string& filename) {
+    ifstream file(filename);
+    int n;
+    file >> n;
+
+    vector<double> vec(n);
+    for (int i = 0; i < n; i++) {
+        file >> vec[i];
+    }
+    file.close();
+    return vec;
 }
 
 double getelem(const Matrix& A, int i, int j) {
@@ -59,21 +122,20 @@ double getelem(const Matrix& A, int i, int j) {
         return A.AD[i];
     }
     else if (j > i) { // Верхний треугольник
-        int band_index = A.k - j - i - 2;
-        if (band_index < A.k && band_index >= 0) {
-            return A.AN[i][band_index];
+        if (0 <= j - i - 1 && j - i - 1 <= A.k - 1) {
+            return A.AN[i][j - i - 1];
         }
     }
     else { // Нижний треугольник
-        int band_index = A.k - j - i - 2;
-        if (band_index < A.k && band_index >= 0) {
-            return A.AL[j][band_index];
+        if (i - j - 1 <= A.k - 1) {
+            return A.AL[i][i - j - 1];
         }
+        
     }
     return 0.0;
 }
 
-void printMatrix(const Matrix& matrix) {
+void printLUMatrix(const Matrix& matrix) {
     cout << matrix.n << " " << matrix.k << "\n";
     for (int i = 0; i < matrix.n; i++) {
         cout << matrix.AD[i] << " ";
@@ -133,7 +195,7 @@ void LUdec(const Matrix& A, Matrix& L, Matrix& U) {
             double l_ij = (a_ij - sum);
 
             if (i - j - 1 < k && i - j - 1 >= 0) {
-                L.AL[j][i - j - 1] = l_ij;
+                L.AL[i][i - j - 1] = l_ij;
             }
         }
 
@@ -162,9 +224,17 @@ void LUdec(const Matrix& A, Matrix& L, Matrix& U) {
     }
 }
 
+void printDenseMatrix(const vector<vector<double>>& matrix) {
+    int n = matrix.size();
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            cout << matrix[i][j] << " ";
+        }
+        cout << "\n";
+    }
+}
 
-// ТОЛКО ДЛЯ ПРОВЕРОК!!! спизженно и не обязательно, мы слишком тупые что бы самим до такого догадаться
-void checkLU(const Matrix & A, const Matrix & L, const Matrix & U) {
+void checkLU(const Matrix& A, const Matrix& L, const Matrix& U) {
     int n = A.n;
     cout << "Check A = L * U:\n";
 
@@ -195,13 +265,18 @@ void checkLU(const Matrix & A, const Matrix & L, const Matrix & U) {
 
 
 int main() {
-    Matrix matrix = readMatrix("matrix.txt");
-    printMatrix(matrix);
+    vector<vector<double>> matrix = readMatrix("matrix.txt");
+    printDenseMatrix(matrix);
+
     cout << "*****" << "\n";
+    
+    Matrix matrixBand = denseToBand(matrix);
+    printLUMatrix(matrixBand);
     Matrix L, U;
-    LUdec(matrix, L, U);
-    printMatrix(L);
+    LUdec(matrixBand, L, U);
+    printLUMatrix(L);
     cout << "*****" << "\n";
-    printMatrix(U);
-    checkLU(matrix, L, U);
+    printLUMatrix(U);
+
+    checkLU(matrixBand, L, U);
 }
