@@ -121,16 +121,17 @@ double getelem(const Matrix& A, int i, int j) {
     if (i == j) {
         return A.AD[i];
     }
-    else if (j > i) { // Верхний треугольник
-        if (0 <= j - i - 1 && j - i - 1 <= A.k - 1) {
-            return A.AN[i][j - i - 1];
+    else if (j > i) { // Верхний треугольник - элемент над диагональю
+        int dist = j - i - 1;
+        if (dist >= 0 && dist < A.k) {
+            return A.AN[i][dist];  // Берем из строки i
         }
     }
-    else { // Нижний треугольник
-        if (i - j - 1 <= A.k - 1) {
-            return A.AL[i][i - j - 1];
+    else { // Нижний треугольник - элемент под диагональю
+        int dist = i - j - 1;
+        if (dist >= 0 && dist < A.k) {
+            return A.AL[i][dist];  // Берем из строки i
         }
-        
     }
     return 0.0;
 }
@@ -167,7 +168,7 @@ void LUdec(const Matrix& A, Matrix& L, Matrix& U) {
     L = A;
     U = A;
 
-    
+
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < k; j++) {
             L.AN[i][j] = 0.0; // Верхняя часть L = 0
@@ -179,7 +180,7 @@ void LUdec(const Matrix& A, Matrix& L, Matrix& U) {
     for (int i = 0; i < n; i++) {
         U.AD[i] = 1.0;
     }
-   
+
 
 
     for (int i = 0; i < n; i++) {
@@ -188,16 +189,26 @@ void LUdec(const Matrix& A, Matrix& L, Matrix& U) {
             double sum = 0.0;
             for (int p = max(0, max(i - k, j - k)); p < j; p++) {
                 sum += getelem(L, i, p) * getelem(U, p, j);
+                cout << "@" << getelem(L, i, p) << " " << getelem(U, p, j) << "\n";
             }
 
             // L[i][j] = (A[i][j] - sum) / U[j][j]
             double a_ij = getelem(A, i, j);
             double l_ij = (a_ij - sum);
+            cout << "#" << a_ij << " " << l_ij << "\n";
 
             if (i - j - 1 < k && i - j - 1 >= 0) {
                 L.AL[i][i - j - 1] = l_ij;
+                cout << "%" << getelem(L, i, j) << "\n";
             }
         }
+
+        // Вычисляем диагональный элемент L
+        double sum = 0.0;
+        for (int p = max(0, i - k); p < i; p++) {
+            sum += getelem(L, i, p) * getelem(U, p, i);
+        }
+        L.AD[i] = getelem(A, i, i) - sum;
 
         // Вычисляем элементы U для текущей строки
         for (int j = i + 1; j < min(n, i + k + 1); j++) {
@@ -215,12 +226,7 @@ void LUdec(const Matrix& A, Matrix& L, Matrix& U) {
             }
         }
 
-        // Вычисляем диагональный элемент L
-        double sum = 0.0;
-        for (int p = max(0, i - k); p < i; p++) {
-            sum += getelem(L, i, p) * getelem(U, p, i);
-        }
-        L.AD[i] = getelem(A, i, i) - sum;
+        
     }
 }
 
